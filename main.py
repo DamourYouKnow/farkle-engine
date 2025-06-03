@@ -1,19 +1,19 @@
 import random
 from typing import Any
-from itertools import product
+from itertools import product, combinations, chain
 
 # http://cs.gettysburg.edu/~tneller/papers/acg2017.pdf
 
 # Lookup table for scoring sets of dice.
-scoring = {
+scoring = { # c
     (1, 1, 1): 1000,
     (6, 6, 6): 600,
     (5, 5, 5): 500,
     (4, 4, 4): 400,
     (3, 3, 3): 300,
     (2, 2, 2): 200,
-    (1): 100,
-    (5): 50
+    tuple([1]): 100,
+    tuple([5]): 50
 }
 
 target_score = 2000
@@ -35,19 +35,23 @@ def roll(size: int) -> tuple[int]:
     return (random.randint(1, 6) for _ in range(size))
 
 
-def score(dice: tuple[int]) -> int:
-    for combo, score in scoring:
-        if match(combo, dice):
-            (dice.remove(die) for die in combo)
-            return score
-    return 0
+def score(dice: list[int]) -> int:
+    score = 0
+
+    for combo, combo_score in scoring.items():
+        while match(combo, dice):
+            [dice.remove(die) for die in combo]
+            score += combo_score
+    
+    return score
 
 
-def match(combo: tuple[int], roll: tuple[int]):
+def match(combo: tuple[int], roll: list[int]):
+    roll_list = list(roll)
     for die in combo:
-        if die not in roll:
+        if die not in roll_list:
             return False
-        roll.remove(die)
+        roll_list.remove(die)
     return True
 
 
@@ -113,10 +117,35 @@ def p_winning_from_scoring( # W(b, d, n, t, r)
     pass
 
 
+# TODO: Avoid generating combinations that won't score.
+def possible_scorings(roll: tuple[int]) -> dict[int, int]:
+    scorings: dict[int, int] = {}
+
+    combos = list(
+        chain.from_iterable(
+            combinations(roll, n) for n in range(len(roll))
+        )
+    )
+
+    for combo in combos:
+        combo_list = list(combo)
+        combo_score = score(combo_list)
+        if combo_score > 0:
+            scorings[len(combo) - len(combo_list)] = combo_score
+
+    return scorings
+
+
+def hot_dice(remaining_dice: int) -> int:
+    return 6 if remaining_dice == 0 else remaining_dice
+
+
 def generate_sequences(n: int) -> list[list[Any]]:
     temp = (tuple(range(1, 7)) for _ in range(n))
     return tuple(product(*temp))
 
 
 if __name__ == "__main__":
-    print(len(generate_sequences(6)))
+    print(
+        possible_scorings((4, 5, 3, 4, 4, 5))
+    )
