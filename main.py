@@ -120,7 +120,7 @@ def p_winning_from_banking( # W(b, d, n, t)
 ) -> float :
     if player_score + player_turn_score >= target_score:
         return 1
-    if player_turn_score == 0:
+    elif player_turn_score == 0:
         return p_rolling(
             player_score,
             opponent_score,
@@ -158,7 +158,7 @@ def p_rolling(
             remaining_dice,
             player_turn_score,
             sequence
-        ) * (1 / len(sequences[remaining_dice]))
+        ) * (1 / (6 ** remaining_dice))
     return p
 
 
@@ -179,15 +179,20 @@ def p_winning_from_scoring( # W(b, d, n, t, r)
             0
         )
     else:
-        return max([
-            p_winning_from_banking(
+        p_estimates = []
+        for sn, sp in combos:
+            p_estimate = p_winning_from_banking(
                 player_score,
                 opponent_score,
                 hot_dice(remaining_dice - sn),
                 player_turn_score + sp
-            ) \
-                for sn, sp in combos
-        ])
+            )
+            print(p_estimate)
+            # FIXME: p_estimate is always 1
+            # Maybe int-float operability issue?
+            p_estimates.append(p_estimate)
+
+        return max(p_estimates)
         
 
 # TODO: Avoid generating combinations that won't score.
