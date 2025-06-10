@@ -1,11 +1,17 @@
 import random
-from typing import Any
+import os
+from typing import Any, TypeAlias
 from itertools import product, combinations, chain
+from ast import literal_eval
 
 # http://cs.gettysburg.edu/~tneller/papers/acg2017.pdf
 
+
+Roll: TypeAlias = tuple[int]
+
+
 # Lookup table for scoring sets of dice.
-scoring = { # c
+score_table: dict[Roll, int] = { # c
     (1, 1, 1): 1000,
     (6, 6, 6): 600,
     (5, 5, 5): 500,
@@ -18,9 +24,9 @@ scoring = { # c
 
 target_score = 2000
 
-sequences: dict[int, tuple[tuple[int]]] = dict()
+sequences: dict[int, tuple[Roll]] = dict()
 
-scoring_combos: dict[tuple[int], dict[int, int]] = dict()
+scoring_combos: dict[Roll, dict[int, int]] = dict()
 
 
 class Player:
@@ -36,6 +42,9 @@ class Player:
 
 
 def cache():
+    global sequences
+    global scoring_combos
+
     print("Generating roll sequences cache...")
 
     # Pre-cache roll sequences
@@ -46,25 +55,47 @@ def cache():
     cache_size = sum(len(values) for values in sequences.values())
     print(f"Cache size: {cache_size}")
 
-    print("Generating scoring combinations cache...")
-    
-    scoring_combos = {
-        roll:possible_scorings(roll) \
-            for roll in chain(*sequences.values()) 
-    }
+    # Check if cache files exist.
+    if os.path.isfile('cache.txt'):
+        # Load from cache.
+        with open('cache.txt', 'r') as cache_file:
+            print("Loading scoring combinations cache...")
+            cache = [
+                line.strip().split('-') for line in cache_file.readlines()
+            ]
+            scoring_combos = { 
+                literal_eval(split[0]) : literal_eval(split[-1]) for split in cache
+            }
 
-    cache_size = sum(len(values) for values in scoring_combos.values())
-    print(f"Cache size: {cache_size}")
+    # Cache file does not exist, generate and write.
+    else:
+        print("Generating scoring combinations cache...")
+        
+        scoring_combos = {
+            roll:possible_scorings(roll) \
+                for roll in chain(*sequences.values()) 
+        }
+
+        cache_size = sum(len(values) for values in scoring_combos.values())
+        print(f"Cache size: {cache_size}")
+
+        cache = [
+            f"{str(roll)}-{str(combos)}\n" \
+            for roll, combos in scoring_combos.items()
+        ]
+
+        with open("cache.txt", "w") as cache_file:
+            cache_file.writelines(cache)
 
 
-def roll(size: int) -> tuple[int]:
+def roll(size: int) -> Roll:
     return (random.randint(1, 6) for _ in range(size))
 
 
 def score(dice: list[int]) -> int:
     score = 0
 
-    for combo, combo_score in scoring.items():
+    for combo, combo_score in score_table.items():
         while match(combo, dice):
             [dice.remove(die) for die in combo]
             score += combo_score
@@ -86,7 +117,7 @@ def p_winning_from_banking( # W(b, d, n, t)
     opponent_score: int, # d
     remaining_dice: int, # n
     player_turn_score: int # t
-):
+) -> float :
     if player_score + player_turn_score >= target_score:
         return 1
     if player_turn_score == 0:
@@ -118,9 +149,8 @@ def p_rolling(
     opponent_score: int, # d
     remaining_dice: int, # n
     player_turn_score: int # t
-):
+) -> float:
     p = 0
-    print(sequences)
     for sequence in sequences[remaining_dice]:
         p += p_winning_from_scoring(
             player_score,
@@ -137,8 +167,8 @@ def p_winning_from_scoring( # W(b, d, n, t, r)
     opponent_score: int, # d
     remaining_dice: int, # n
     player_turn_score: int, # t
-    roll: tuple[int] # r
-):
+    roll: Roll # r
+) -> float:
     scoring_combos = possible_scorings(roll).items()
 
     if not scoring_combos:
@@ -161,20 +191,22 @@ def p_winning_from_scoring( # W(b, d, n, t, r)
         
 
 # TODO: Avoid generating combinations that won't score.
-def possible_scorings(roll: tuple[int]) -> dict[int, int]:
+def possible_scorings(roll: Roll) -> dict[int, int]:
     scorings: dict[int, int] = {}
 
     combos = list(
         chain.from_iterable(
-            combinations(roll, n) for n in range(len(roll))
+            combinations(roll, n + 1) for n in range(len(roll))
         )
     )
 
     for combo in combos:
         combo_list = list(combo)
         combo_score = score(combo_list)
+        dice_used =  len(combo) - len(combo_list)
         if combo_score > 0:
-            scorings[len(combo) - len(combo_list)] = combo_score
+            if dice_used not in scorings or combo_score > scorings[dice_used]:
+                scorings[dice_used] = combo_score
 
     return scorings
 
@@ -183,7 +215,7 @@ def hot_dice(remaining_dice: int) -> int:
     return 6 if remaining_dice == 0 else remaining_dice
 
 
-def generate_sequences(n: int) -> tuple[tuple[Any]]:
+def generate_sequences(n: int) -> tuple[int]:
     temp = (tuple(range(1, 7)) for _ in range(n))
     return tuple(product(*temp))
 
@@ -199,3 +231,4 @@ if __name__ == "__main__":
     )
 
     print(p_banking)
+
