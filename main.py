@@ -119,7 +119,7 @@ def p_winning_from_banking( # W(b, d, n, t)
     player_turn_score: int # t
 ) -> float :
     if player_score + player_turn_score >= target_score:
-        return 1
+        return 1.0
     elif player_turn_score == 0:
         return p_rolling(
             player_score,
@@ -129,7 +129,7 @@ def p_winning_from_banking( # W(b, d, n, t)
         )
     else:
         return max(
-            1 - p_winning_from_banking(
+            1.0 - p_winning_from_banking(
                 opponent_score,
                 player_score + player_turn_score,
                 6,
@@ -158,7 +158,7 @@ def p_rolling(
             remaining_dice,
             player_turn_score,
             sequence
-        ) * (1 / (6 ** remaining_dice))
+        ) * (1.0 / float(6 ** remaining_dice))
     return p
 
 
@@ -172,7 +172,7 @@ def p_winning_from_scoring( # W(b, d, n, t, r)
     combos = scoring_combos[roll].items()
 
     if not combos:
-        return 1 - p_winning_from_banking(
+        return 1.0 - p_winning_from_banking(
             opponent_score,
             player_score,
             6,
@@ -188,7 +188,7 @@ def p_winning_from_scoring( # W(b, d, n, t, r)
                 player_turn_score + sp
             )
             print(p_estimate)
-            # FIXME: p_estimate is always 1
+            # FIXME: p_estimate is always 1.0
             # Maybe int-float operability issue?
             p_estimates.append(p_estimate)
 
