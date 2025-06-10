@@ -18,6 +18,10 @@ scoring = { # c
 
 target_score = 2000
 
+sequences: dict[int, tuple[tuple[int]]] = dict()
+
+scoring_combos: dict[tuple[int], dict[int, int]] = dict()
+
 
 class Player:
     score: int = 0
@@ -29,6 +33,28 @@ class Player:
 
     def __repr__(self) -> str:
         pass
+
+
+def cache():
+    print("Generating roll sequences cache...")
+
+    # Pre-cache roll sequences
+    sequences = {
+        dice:generate_sequences(dice) for dice in range(1, 7)
+    }
+
+    cache_size = sum(len(values) for values in sequences.values())
+    print(f"Cache size: {cache_size}")
+
+    print("Generating scoring combinations cache...")
+    
+    scoring_combos = {
+        roll:possible_scorings(roll) \
+            for roll in chain(*sequences.values()) 
+    }
+
+    cache_size = sum(len(values) for values in scoring_combos.values())
+    print(f"Cache size: {cache_size}")
 
 
 def roll(size: int) -> tuple[int]:
@@ -87,7 +113,6 @@ def p_winning_from_banking( # W(b, d, n, t)
         )
 
 
-# TODO: Pre-cache sequences for all values of n from 1 to 6
 def p_rolling(
     player_score: int, # b
     opponent_score: int, # d
@@ -95,15 +120,15 @@ def p_rolling(
     player_turn_score: int # t
 ):
     p = 0
-    sequences = generate_sequences(remaining_dice)
-    for sequence in sequences:
+    print(sequences)
+    for sequence in sequences[remaining_dice]:
         p += p_winning_from_scoring(
             player_score,
             opponent_score,
             remaining_dice,
             player_turn_score,
             sequence
-        ) * (1 / len(sequences))
+        ) * (1 / len(sequences[remaining_dice]))
     return p
 
 
@@ -114,8 +139,26 @@ def p_winning_from_scoring( # W(b, d, n, t, r)
     player_turn_score: int, # t
     roll: tuple[int] # r
 ):
-    pass
+    scoring_combos = possible_scorings(roll).items()
 
+    if not scoring_combos:
+        return 1 - p_winning_from_banking(
+            opponent_score,
+            player_score,
+            6,
+            0
+        )
+    else:
+        return max([
+            p_winning_from_banking(
+                player_score,
+                opponent_score,
+                hot_dice(remaining_dice - sn),
+                player_turn_score + sp
+            ) \
+                for sn, sp in scoring_combos
+        ])
+        
 
 # TODO: Avoid generating combinations that won't score.
 def possible_scorings(roll: tuple[int]) -> dict[int, int]:
@@ -140,12 +183,19 @@ def hot_dice(remaining_dice: int) -> int:
     return 6 if remaining_dice == 0 else remaining_dice
 
 
-def generate_sequences(n: int) -> list[list[Any]]:
+def generate_sequences(n: int) -> tuple[tuple[Any]]:
     temp = (tuple(range(1, 7)) for _ in range(n))
     return tuple(product(*temp))
 
 
 if __name__ == "__main__":
-    print(
-        possible_scorings((4, 5, 3, 4, 4, 5))
+    cache()
+
+    p_banking = p_winning_from_banking(
+        0,
+        0,
+        6,
+        0
     )
+
+    print(p_banking)
