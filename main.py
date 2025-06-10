@@ -169,9 +169,9 @@ def p_winning_from_scoring( # W(b, d, n, t, r)
     player_turn_score: int, # t
     roll: Roll # r
 ) -> float:
-    scoring_combos = possible_scorings(roll).items()
+    combos = scoring_combos[roll].items()
 
-    if not scoring_combos:
+    if not combos:
         return 1 - p_winning_from_banking(
             opponent_score,
             player_score,
@@ -186,7 +186,7 @@ def p_winning_from_scoring( # W(b, d, n, t, r)
                 hot_dice(remaining_dice - sn),
                 player_turn_score + sp
             ) \
-                for sn, sp in scoring_combos
+                for sn, sp in combos
         ])
         
 
